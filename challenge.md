@@ -1,11 +1,14 @@
+
 # Strata Labs Technical Challenge
+
+Candidate Access Key: ```alexmills```
 
 ## Logistics
 This challenge is intended to be done at home and should take 1-4 hours. You should complete it in whatever programming language you feel most comfortable in and you may use any resources you like.
 
 We will schedule a review session afterwards where we will ask you to discuss your solution and explain your design choices.
 
-Upon completion, please send a zip of all the files used in your solution to info@stratalabs.io.
+Upon completion, please send a zip of all the files used in your solution to ```info@stratalabs.io```.
 
 _Please do not share this challenge or your solution to it._
 
@@ -17,8 +20,10 @@ Upon opening a trustline with another node, they should agree on a max balance t
 Write a program that implements and exposes an interactive command line interface for each user participating in this network. Once a user starts the interactive prompt, they should be able to send money to other users and view their trustline balances as well as their funds on FakeChain.
 
 If you have any questions, feel free to contact us and we'll get back to you as soon as possible.
-Austin: (574) 849 - 9823
-Dino: (336) 391 - 1192
+
+Austin: ```(574) 849 - 9823```
+
+Dino: ```(336) 391 - 1192```
 
 ### Constraints
 
@@ -33,36 +38,54 @@ Do not worry about writing tests, we are more interested in seeing your architec
 
 ### FakeChain REST API
 
-##### Endpoint: http://ec2-34-222-59-29.us-west-2.compute.amazonaws.com:5000/
-&nbsp;
-##### /add_user
+##### Endpoint: 
+```http://ec2-34-222-59-29.us-west-2.compute.amazonaws.com:5000/```
+
+##### 
+
+```/add_user```
+
 *URL params*
+
 **candidate**: access key given at top of prompt
+
 **public_key**: node name
+
 **amount**: initial starting funds
+
 **private_key**: secret key to authorize payments
 
-##### /delete_all_users
+```/delete_all_users```
+
 *URL params:*
+
 **candidate**: access key given at top of prompt
 
-##### /get_users
+```/get_users```
+
 *URL params*
+
 **candidate**: access key given at top of prompt
 
-##### /pay_user
+```/pay_user```
+
 *URL params*
+
 **candidate**: access key given at top of prompt
+
 **sender**: public_key of sending node
+
 **receiver**: public_key of receiving node
+
 **private_key**: private_key of sender to authorize payment
+
 **amount**: amount to send
 
 ### Example Terminal Output
 
 #### Alice
 
-```sh
+```
 $ ./start-user ... # ( init options )
 User Alice created and registered on FakeChain!
 > open_trustlines # ( peering options )
