@@ -1,7 +1,7 @@
 # Strata Labs Technical Challenge
 
 ## Logistics
-This challenge is intended to be done at home and should take 4-6 hours. You should complete it in whatever programming language you feel most comfortable in and you may use any resources you like.
+This challenge is intended to be done at home and should take 1-4 hours. You should complete it in whatever programming language you feel most comfortable in and you may use any resources you like.
 
 We will schedule a review session afterwards where we will ask you to discuss your solution and explain your design choices.
 
