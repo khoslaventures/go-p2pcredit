@@ -1,8 +1,6 @@
 
 # Strata Labs Technical Challenge
 
-Candidate Access Key: ```alexmills```
-
 ## Logistics
 This challenge is intended to be done at home and should take 1-4 hours. You should complete it in whatever programming language you feel most comfortable in and you may use any resources you like.
 
