@@ -13,7 +13,7 @@ _Please do not share this challenge or your solution to it._
 ## Challenge
 A “trustline” is a way to keep track of debt between two parties. The trustline balance starts at 0 and both parties independently track their views of the balance. If Alice owes Bob $10, then Alice sees a balance of -10 and Bob sees a balance of 10. If Alice sends Bob 10 more, then her balance would be -20, and Bob’s balance would be 20.
 
-In order to settle the trustline, users can submit payments on FakeChain.
+In order to settle the trustline, users can submit payments on FakeChain using their private key.
 
 Implement a program that exposes an interactive command line interface for each user participating in this network. Once a user starts the interactive prompt they should be able to send money to other users using a trustline, view their trustline and FakeChain balances, and settle their trustlines over fakechain.
 
@@ -51,7 +51,7 @@ Do not worry about writing tests, we are more interested in seeing your architec
 
 **amount**: initial starting funds
 
-**private_key**: secret key to authorize payments
+**private_key**: secret key to submit payments to FakeChain
 
 **peering_info**: custom JSON object of your design containing information 
 used to connect to other users in the network
