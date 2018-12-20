@@ -28,7 +28,9 @@ to keep track of debt between two parties.  The trustline balance will start at
 sends 10 units to Bob, they would both update their trustline balance so that
 Alice would see { Bob: -10 } and Bob would see { Alice: 10 }.  If Alice sends 10
 more units to Bob, she would see a balance of { Bob: -20 } and he would see {
-Alice: 20 }.  
+Alice: 20 }.  A negative amount indicates that a user owes money to the
+counterparty, while a positive indicates that a user is owed money by the
+counterparty.
 
 Participants in this network have decided on a credit limit of 100 units.  That
 means that anytime a trustline balance exceeds 100 units, that debt should be
