@@ -29,7 +29,7 @@ sends 10 units to Bob, they would both update their trustline balance so that
 Alice would see { Bob: -10 } and Bob would see { Alice: 10 }.  If Alice sends 10
 more units to Bob, she would see a balance of { Bob: -20 } and he would see {
 Alice: 20 }.  A negative amount indicates that a user owes money to the
-counterparty, while a positive indicates that a user is owed money by the
+counterparty, while a positive amount indicates that a user is owed money by the
 counterparty.
 
 Participants in this network have decided on a credit limit of 100 units.  That
@@ -49,7 +49,7 @@ interact with FakeChain through the endpoints below.
 
 Implement a program that exposes an interactive command line interface for each
 user participating in this network. Once a user starts the interactive prompt 
-they should be able to send money to other users using a trustline, view their 
+they should be able to send money to other users using a trustline, view both their 
 trustline and FakeChain balances, and settle their trustlines over FakeChain.
 
 If you have any questions, please contact us in a group text and we'll get back 
@@ -62,12 +62,13 @@ Dino: ```(336) 391 - 1192```
 ### Constraints
 
 - **Users in the network must be able to communicate from different computers**
-- Each user keeps track of their own trustline balances
 - Users must be able to handle multiple peers; there should be only one trustline per peer
 - Before closing a session, a user must settle all outstanding debts on FakeChain 
   (do not worry about outstanding credits)
+- Each user keeps track of their own trustline balances
 - We are looking for a decentralized network, trustlines should not be tracked or stored 
-  remotely (i.e. on a server)
+  remotely (i.e. on a central server) each user's trustline balances should be
+  stored on the computer running the command line interface for that user.
 - One should be able to add new users into the network at will
 
 Do not worry about writing tests, we are more interested in seeing your 
@@ -99,17 +100,24 @@ below.
 **peering_info**: custom JSON object of your design containing information 
 used to connect to other users in the network
 
+**example response**: "success"
+
 ```/delete_all_users```
 
 *URL params:*
 
 **candidate**: access key given at top of prompt
 
+**example response**: "success"
+
 ```/get_users```
 
 *URL params*
 
 **candidate**: access key given at top of prompt
+
+**example response**: { "Alice": { "amount": 100, "peering_info": { custom
+values } }, "Bob": { "amount": 20, "peering_info": { custom values } } }
 
 ```/pay_user```
 
@@ -124,6 +132,8 @@ used to connect to other users in the network
 **private_key**: private_key of sender to authorize payment
 
 **amount**: amount to send
+
+**example response**: "success"
 
 ### Example Terminal Output
 
