@@ -116,8 +116,11 @@ used to connect to other users in the network
 
 **candidate**: access key given at top of prompt
 
-**example response**: { "Alice": { "amount": 100, "peering_info": { custom
+**example response**: 
+```
+{ "Alice": { "amount": 100, "peering_info": { custom
 values } }, "Bob": { "amount": 20, "peering_info": { custom values } } }
+```
 
 ```/pay_user```
 
