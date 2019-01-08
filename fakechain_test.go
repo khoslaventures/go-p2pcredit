@@ -11,14 +11,18 @@ func TestAPI(t *testing.T) {
 	fmt.Println(res)
 	res = addUser("bob", 100, "password2", "localhost", 4001)
 	fmt.Println(res)
-	getUsers()
+
+	ud := getUsers()
+	printPeerDetails(ud)
 
 	// Akash pays bob 50
 	res = payUser("akash", "bob", "password1", 50)
 	fmt.Println(res)
-	getUsers()
+	ud = getUsers()
+	printPeerDetails(ud)
 
 	// Delete all users
 	deleteUsers()
-	getUsers()
+	ud = getUsers()
+	printPeerDetails(ud)
 }

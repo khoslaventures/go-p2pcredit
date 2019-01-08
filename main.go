@@ -23,6 +23,7 @@ func startClient(host *Host) {
 	for {
 		fmt.Print("> ")
 		in, _ := reader.ReadString('\n')
+		in = strings.TrimSuffix(in, "\n")
 		s := strings.Split(in, " ")
 		switch s[0] {
 		case "pay":
@@ -73,7 +74,7 @@ func startClient(host *Host) {
 			// example: propose Bob
 			// look up PeerID, obtain connection details
 			if len(s) == 2 {
-				peerID := s[2]
+				peerID := s[1]
 				if _, exists := host.peerIDtoPeer[peerID]; !exists {
 					ud := getUsers()
 					for id, info := range ud {
@@ -107,6 +108,7 @@ func startClient(host *Host) {
 
 func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	fmt.Println("Starting...")
+	reader := bufio.NewReader(os.Stdin)
 	host := Host{
 		Name:         name,
 		Port:         port,
@@ -118,6 +120,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 		register:     make(chan *Peer),
 		unregister:   make(chan *Peer),
 		Balance:      balance,
+		reader:       reader,
 	}
 
 	fmt.Printf("Hi %s! We'll need a password for your Fakechain account.\n", host.Name)
@@ -128,12 +131,13 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
 	fmt.Printf("User %s created and registered on FakeChain!", host.Name)
 
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	pstr := fmt.Sprintf(":%d", port)
+	ln, err := net.Listen("tcp", pstr)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println("\nSet up complete, listening on port: ", port)
+	fmt.Println("\nSet up complete, listening on port ", pstr)
 
 	go host.stateManager()
 	go connectionListener(ln, &host)

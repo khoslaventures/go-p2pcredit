@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 )
 
@@ -42,7 +41,7 @@ type Host struct {
 	Balance      uint64
 	password     string
 	IP           string
-	// reader       *bufio.Reader
+	reader       *bufio.Reader
 }
 
 // A Proposal is used to read the first message from the socket connection
@@ -74,11 +73,12 @@ func (host *Host) stateManager() {
 			}
 			peer.socket.Close()
 		case prop := <-host.proposal:
+			fmt.Println("Proposal Received!")
 			// TODO: Potential error: Because of our looping reader, this might not
 			// read anything from stdin
 			fmt.Printf("%s is trying to open a trustline. Accept? [y/n]: ", prop.msg.HostID)
-			reader := bufio.NewReader(os.Stdin)
-			in, _ := reader.ReadString('\n')
+			in, _ := host.reader.ReadString('\n')
+			fmt.Println("READ: " + in)
 			if strings.TrimSpace(strings.ToLower(in)) == "y" {
 				prop.peer.PeerID = prop.msg.HostID
 				prop.peer.trustline = &Trustline{0, 0}
@@ -133,9 +133,12 @@ func (host *Host) stateManager() {
 						host.Balance -= msg.Amount
 						host.sendData(msg)
 					}
+
 				} else {
 					fmt.Printf("Err: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
 				}
+			case "Propose":
+				host.sendData(msg)
 			}
 		}
 	}
@@ -153,23 +156,23 @@ func (host *Host) sendData(msg *Message) {
 func (host *Host) receive(peer *Peer) {
 	for {
 		b := make([]byte, bufSize)
-		len, err := peer.socket.Read(b)
+		n, err := peer.socket.Read(b)
 		if err != nil {
 			host.unregister <- peer
 			// peer.socket.Close()
 			break
 		}
-		if len > 0 {
+		if n > 0 {
 			fmt.Println("RECEIVED: " + string(b))
 			var msg Message
-
-			err = json.Unmarshal(b, &msg)
+			err = json.Unmarshal(b[:n], &msg)
 			if err != nil {
+				fmt.Println(err)
 				host.unregister <- peer
-				// peer.socket.Close()
+				// peer.socket.Clos()
 				break
 			}
-			if msg.Type == "Proposal" {
+			if msg.Type == "Propose" {
 				prop := Proposal{peer, &msg}
 				host.proposal <- &prop
 			} else {
@@ -193,7 +196,13 @@ func connectionListener(ln net.Listener, host *Host) {
 }
 
 func (host *Host) createConnection(peerID string, pi *PeerInfo) {
-	conn, err := net.Dial("tcp", pi.IP+":"+string(pi.Port))
+	var cstr string
+	if pi.IP == "localhost" {
+		cstr = fmt.Sprintf(":%d", pi.Port)
+	} else {
+		cstr = fmt.Sprintf("%s:%d", pi.IP, pi.Port)
+	}
+	conn, err := net.Dial("tcp", cstr)
 	if err != nil {
 		fmt.Println(err)
 	}

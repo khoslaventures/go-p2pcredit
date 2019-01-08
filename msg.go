@@ -10,10 +10,10 @@ import (
 // Assumes nodes are stateful and keep track honestly
 // Can be expanded to have signatures
 type Message struct {
-	HostID string
-	PeerID string
-	Type   string
-	Amount uint64
+	HostID string `json:"host"`
+	PeerID string `json:"peer"`
+	Type   string `json:"type"`
+	Amount uint64 `json:"amt"`
 }
 
 func serialize(msg *Message) []byte {

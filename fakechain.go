@@ -11,6 +11,7 @@ import (
 
 // Interacts with Fakechain by making HTTP calls.
 // Expects a REST server on the other side.
+// May want to do something with a session that's kept alive?
 
 const destURL = "http://ec2-34-222-59-29.us-west-2.compute.amazonaws.com:5000/"
 const candidateKey = "akash"
@@ -110,7 +111,6 @@ func getUsers() map[string]PeerDetails {
 	err = json.Unmarshal(body, &data)
 	ferror(err)
 
-	printPeerDetails(data)
 	return data
 }
 
