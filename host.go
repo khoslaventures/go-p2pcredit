@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/k0kubun/pp"
 	"github.com/oleiade/lane"
 )
 
@@ -87,12 +86,16 @@ func (host *Host) stateManager() {
 			switch msg.Type {
 			case "Pay":
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
+					fmt.Printf("\n%s has paid you %d!\n", msg.HostID, msg.Amount)
+					fmt.Print("> ")
 					peer.trustline.HostBalance += int(msg.Amount)
 					peer.trustline.PeerBalance -= int(msg.Amount)
 				}
 			case "Settle":
 				// In the real case, we should verify, but this is not real
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
+					fmt.Printf("\n%s has settled a payment of %d!\n", msg.HostID, msg.Amount)
+					fmt.Print("> ")
 					peer.trustline.HostBalance -= int(msg.Amount)
 					peer.trustline.PeerBalance += int(msg.Amount)
 				}
@@ -100,23 +103,25 @@ func (host *Host) stateManager() {
 				// fmt.Println("Received ProposeAccept")
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
 					peer.pending = false
-					fmt.Printf("%s has accepted your trustline request!\n", msg.HostID)
+					fmt.Printf("\n%s has accepted your trustline request!\n", msg.HostID)
+					fmt.Print("> ")
 				} else {
-					fmt.Printf("Err: PeerID %s not found\n", msg.HostID)
+					fmt.Printf("\nErr: PeerID %s not found\n", msg.HostID)
+					fmt.Print("> ")
 				}
 			case "ProposeReject":
-				// URGENT: Looks like this is not unregistering.
-				fmt.Println("Received ProposeReject")
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
 					if _, ok := host.peers[peer]; ok {
 						close(peer.data)
 						delete(host.peers, peer)
 						delete(host.peerIDtoPeer, msg.HostID)
-						println("Deleted from host.peerIDtoPeer")
+						// println("Deleted from host.peerIDtoPeer")
 					}
-					fmt.Printf("%s has rejected your trustline request!\n", msg.HostID)
+					fmt.Printf("\n%s has rejected your trustline request!\n", msg.HostID)
+					fmt.Print("> ")
 				} else {
-					fmt.Printf("Err: PeerID %s not found\n", msg.HostID)
+					fmt.Printf("\nErr: PeerID %s not found\n", msg.HostID)
+					fmt.Print("> ")
 				}
 			}
 		case msg := <-host.outbound:
@@ -137,9 +142,9 @@ func (host *Host) stateManager() {
 						host.Balance -= msg.Amount
 						peer.data <- serialize(msg)
 					}
-
 				} else {
-					fmt.Printf("Err: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
+					fmt.Printf("\nErr: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
+					fmt.Print("> ")
 				}
 			case "Propose":
 				// fmt.Println("Sending Propose")
@@ -152,14 +157,13 @@ func (host *Host) stateManager() {
 					peer.data <- serialize(msg)
 				}
 			case "ProposeReject":
-				fmt.Println("Sending ProposeReject")
+				// fmt.Println("Sending ProposeReject")
 				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 					peer.data <- serialize(msg)
 					if _, ok := host.peers[peer]; ok {
 						close(peer.data)
 						delete(host.peers, peer)
 						delete(host.peerIDtoPeer, msg.PeerID)
-						println("Deleted from host.peerIDtoPeer")
 					}
 				}
 			}
@@ -193,14 +197,14 @@ func (host *Host) receive(peer *Peer) {
 			break
 		}
 		if n > 0 {
-			fmt.Println("RECEIVED: " + string(b))
+			// fmt.Println("RECEIVED: " + string(b))
 			var buf bytes.Buffer
 			buf.Write(b[:n])
 			for buf.Len() > 0 {
 				var msg Message
 				d, err := buf.ReadBytes('}')
-				fmt.Println(string(d))
-				pp.Println(d)
+				// fmt.Println(string(d))
+				// pp.Println(d)
 				err = json.Unmarshal(d, &msg)
 				if err != nil {
 					fmt.Println(err)
@@ -213,7 +217,7 @@ func (host *Host) receive(peer *Peer) {
 				} else {
 					host.inbound <- &msg
 				}
-				fmt.Println(buf.Len())
+				// fmt.Println(buf.Len())
 			}
 		}
 

@@ -23,6 +23,8 @@ func startClient(host *Host) {
 	// Send loop
 	reader := bufio.NewReader(os.Stdin)
 	for {
+		// TODO: There's probably a better way to render the "> " after a
+		// println. Perhaps some kind of log channel would do.
 		fmt.Print("> ")
 		in, _ := reader.ReadString('\n')
 		in = strings.TrimSuffix(in, "\n")
@@ -50,12 +52,12 @@ func startClient(host *Host) {
 							// Send the amount that will increase the balance to 100
 							payment := trustlineLimit - bal
 							msgPay := Message{host.Name, peerID, "Pay", uint32(payment)}
-							fmt.Println("Payment to trustlineLimit queued.")
+							fmt.Printf("Payment of %d (trustlineLimit) with %s queued\n", trustlineLimit, peerID)
 							host.outbound <- &msgPay
 
 							// Settle on the blockchain
 							msgSettle := Message{host.Name, peerID, "Settle", trustlineLimit}
-							fmt.Println("Settlement queued.")
+							fmt.Printf("Settlement with %s queued\n", peerID)
 							host.outbound <- &msgSettle
 
 							// Send the remaining amount
@@ -63,7 +65,7 @@ func startClient(host *Host) {
 							amt = uint64(remainder)
 						}
 						msg := Message{host.Name, peerID, "Pay", uint32(amt)}
-						fmt.Println("Payment queued.")
+						fmt.Printf("Payment of %d with %s queued\n", amt, peerID)
 						host.outbound <- &msg
 					} else {
 						fmt.Printf("Err: Connection with %s is waiting to be accepted.\n", peerID)
@@ -84,11 +86,11 @@ func startClient(host *Host) {
 						continue
 					}
 					if peer.trustline.HostBalance >= 0 {
-						fmt.Printf("Err: Nothing to settle as HostBalance is %d\n", peer.trustline.HostBalance)
+						fmt.Printf("Err: Nothing to settle as HostBalance is %d - your peer must settle!\n", peer.trustline.HostBalance)
 					} else {
 						if !peer.pending {
 							msg := Message{host.Name, peerID, "Settle", uint32(amt)}
-							fmt.Println("Settlement queued.")
+							fmt.Printf("Settlement with %s queued\n", peerID)
 							host.outbound <- &msg
 						} else {
 							fmt.Printf("Err: Connection with %s is waiting to be accepted.\n", peerID)
@@ -148,20 +150,27 @@ func startClient(host *Host) {
 			}
 		case "exit":
 			fmt.Println("Exiting...")
-			// TODO: Right now, this only works
 			bal := int(host.Balance)
+			// TODO: Could prevent the host from accumulating more debt than it
+			// can handle by keeping track of trustline debt in the host, and
+			// then preventing pays
+			// For now, we just settle what we can if the trustline debt exceeds
+			// what we have on Fakechain
 			for id, peer := range host.peerIDtoPeer {
 				if peer.trustline.HostBalance < 0 {
 					if bal-peer.trustline.PeerBalance > 0 {
 						msg := Message{host.Name, id, "Settle", uint32(peer.trustline.PeerBalance)}
-						fmt.Println("Settlement queued.")
+						fmt.Printf("Settlement with %s queued\n", id)
 						host.outbound <- &msg
 						bal -= peer.trustline.PeerBalance
+					} else {
+						fmt.Printf("Err: Insufficient balance to settle with %s\n", id)
 					}
 				}
 			}
-			// settle all debts
-			// exit with code
+			// TODO: Should notify the other party to shutdown, perhaps create
+			// new message type of SettleClose?
+			os.Exit(1)
 		}
 	}
 }
