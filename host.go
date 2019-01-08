@@ -98,18 +98,23 @@ func (host *Host) stateManager() {
 				// fmt.Println("Received ProposeAccept")
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
 					peer.pending = false
-					fmt.Printf("%s has accepted your trustline request!\n", msg.PeerID)
+					fmt.Printf("%s has accepted your trustline request!\n", msg.HostID)
 				} else {
-					fmt.Printf("Err: PeerID %s not found\n", msg.PeerID)
+					fmt.Printf("Err: PeerID %s not found\n", msg.HostID)
 				}
 			case "ProposeReject":
+				// URGENT: Looks like this is not unregistering.
 				fmt.Println("Received ProposeReject")
 				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
-					peer = host.peerIDtoPeer[msg.PeerID]
-					host.unregister <- peer
-					fmt.Printf("%s has rejected your trustline request!\n", msg.PeerID)
+					if _, ok := host.peers[peer]; ok {
+						close(peer.data)
+						delete(host.peers, peer)
+						delete(host.peerIDtoPeer, msg.HostID)
+						println("Deleted from host.peerIDtoPeer")
+					}
+					fmt.Printf("%s has rejected your trustline request!\n", msg.HostID)
 				} else {
-					fmt.Printf("Err: PeerID %s not found\n", msg.PeerID)
+					fmt.Printf("Err: PeerID %s not found\n", msg.HostID)
 				}
 			}
 		case msg := <-host.outbound:
@@ -135,12 +140,12 @@ func (host *Host) stateManager() {
 					fmt.Printf("Err: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
 				}
 			case "Propose":
-				fmt.Println("Sending Propose")
+				// fmt.Println("Sending Propose")
 				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 					peer.data <- serialize(msg)
 				}
 			case "ProposeAccept":
-				fmt.Println("Sending ProposeAccept")
+				// fmt.Println("Sending ProposeAccept")
 				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 					peer.data <- serialize(msg)
 				}
@@ -148,6 +153,12 @@ func (host *Host) stateManager() {
 				fmt.Println("Sending ProposeReject")
 				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 					peer.data <- serialize(msg)
+					if _, ok := host.peers[peer]; ok {
+						close(peer.data)
+						delete(host.peers, peer)
+						delete(host.peerIDtoPeer, msg.PeerID)
+						println("Deleted from host.peerIDtoPeer")
+					}
 				}
 			}
 		}
@@ -155,10 +166,10 @@ func (host *Host) stateManager() {
 }
 
 func (host *Host) send(peer *Peer) {
+	defer peer.socket.Close()
 	for {
 		select {
 		case mb, ok := <-peer.data:
-			fmt.Println("send")
 			if !ok {
 				host.unregister <- peer
 				return
@@ -201,7 +212,7 @@ func (host *Host) receive(peer *Peer) {
 
 // connectionListener will wait for connections and create a receive and send
 // goroutine for each peer.
-func connectionListener(ln net.Listener, host *Host) {
+func (host *Host) connectionListener(ln net.Listener) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {

@@ -17,6 +17,7 @@ import (
 const bufSize = 4096
 const defaultPort = 12345
 const candidate = "akash"
+const trustlineLimit = 100
 
 func startClient(host *Host) {
 	// Send loop
@@ -37,7 +38,29 @@ func startClient(host *Host) {
 						fmt.Println(err)
 						continue
 					}
+					if amt > trustlineLimit {
+						fmt.Printf("Err: Payment of %d exceeds trustline limit of %d\n", amt, trustlineLimit)
+						continue
+					}
 					if !peer.pending {
+						bal := peer.trustline.PeerBalance
+						newBal := bal + int(amt)
+						if newBal > trustlineLimit {
+							// Send the amount that will increase the balance to 100
+							payment := trustlineLimit - bal
+							msgPay := Message{host.Name, peerID, "Pay", uint64(payment)}
+							fmt.Println("Payment to trustlineLimit queued.")
+							host.outbound <- &msgPay
+
+							// Settle on the blockchain
+							msgSettle := Message{host.Name, peerID, "Settle", trustlineLimit}
+							fmt.Println("Settlement queued.")
+							host.outbound <- &msgSettle
+
+							// Send the remaining amount
+							remainder := newBal - trustlineLimit
+							amt = uint64(remainder)
+						}
 						msg := Message{host.Name, peerID, "Pay", amt}
 						fmt.Println("Payment queued.")
 						host.outbound <- &msg
@@ -111,7 +134,7 @@ func startClient(host *Host) {
 				prop.peer.trustline = &Trustline{0, 0}
 				prop.peer.pending = false
 				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
-				msg := Message{host.Name, prop.peer.PeerID, "ProposeAccept", 0}
+				msg := Message{host.Name, prop.msg.HostID, "ProposeAccept", 0}
 				host.outbound <- &msg
 			}
 		case "n":
@@ -121,7 +144,6 @@ func startClient(host *Host) {
 				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
 				msg := Message{host.Name, prop.msg.HostID, "ProposeReject", 0}
 				host.outbound <- &msg
-				host.unregister <- prop.peer
 			}
 		case "exit":
 			fmt.Println("TODO")
@@ -167,7 +189,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	fmt.Println("Set up complete, listening on port", pstr)
 
 	go host.stateManager()
-	go connectionListener(ln, &host)
+	go host.connectionListener(ln)
 	startClient(&host)
 }
 
