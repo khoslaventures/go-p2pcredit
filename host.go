@@ -179,7 +179,7 @@ func (host *Host) receive(peer *Peer) {
 	}
 }
 
-func connectionListener(ln net.Listener, host Host) {
+func connectionListener(ln net.Listener, host *Host) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -200,10 +200,4 @@ func (host *Host) createConnection(peerID string, pi *PeerInfo) {
 	// Create peer, place in mapping
 	peer := &Peer{PeerID: peerID, socket: conn, trustline: &Trustline{0, 0}, data: make(chan []byte), pending: true}
 	host.register <- peer
-}
-
-func inputListener() {
-	for {
-		// Prompt for input, configuration details, etc.
-	}
 }

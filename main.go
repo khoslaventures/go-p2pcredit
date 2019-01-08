@@ -17,42 +17,12 @@ const bufSize = 4096
 const defaultPort = 12345
 const candidate = "akash"
 
-func startService(name string, balance uint64, port uint16, isMainNet bool) {
-	fmt.Println("Starting...")
-	host := Host{
-		Name:         name,
-		Port:         port,
-		peers:        make(map[*Peer]bool),
-		peerIDtoPeer: make(map[string]*Peer),
-		inbound:      make(chan *Message),
-		outbound:     make(chan *Message),
-		proposal:     make(chan *Proposal),
-		register:     make(chan *Peer),
-		unregister:   make(chan *Peer),
-		Balance:      balance,
-	}
-
-	fmt.Printf("Hi %s! We'll need a password for your Fakechain account.\n", host.Name)
-	host.setPassword()
-	host.setIP(isMainNet)
-
-	// Add the user to Fakechain! TODO: Ensure success, if not, panic
-	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
-
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	fmt.Println("\nSet up complete, listening on port: ", port)
-
-	go host.stateManager()
-	go connectionListener(ln, host)
-
+func startClient(host *Host) {
 	// Send loop
-	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
-		in := scanner.Text()
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("> ")
+		in, _ := reader.ReadString('\n')
 		s := strings.Split(in, " ")
 		switch s[0] {
 		case "pay":
@@ -119,7 +89,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 				}
 			}
 		case "balance":
-			displayTrustlineBalances(&host)
+			displayTrustlineBalances(host)
 		case "users":
 			// print users on the FakeChain
 			ud := getUsers()
@@ -133,6 +103,41 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 			// exit with code
 		}
 	}
+}
+
+func startService(name string, balance uint64, port uint16, isMainNet bool) {
+	fmt.Println("Starting...")
+	host := Host{
+		Name:         name,
+		Port:         port,
+		peers:        make(map[*Peer]bool),
+		peerIDtoPeer: make(map[string]*Peer),
+		inbound:      make(chan *Message),
+		outbound:     make(chan *Message),
+		proposal:     make(chan *Proposal),
+		register:     make(chan *Peer),
+		unregister:   make(chan *Peer),
+		Balance:      balance,
+	}
+
+	fmt.Printf("Hi %s! We'll need a password for your Fakechain account.\n", host.Name)
+	host.setPassword()
+	host.setIP(isMainNet)
+
+	// Add the user to Fakechain! TODO: Ensure success, if not, panic
+	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
+	fmt.Printf("User %s created and registered on FakeChain!", host.Name)
+
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Println("\nSet up complete, listening on port: ", port)
+
+	go host.stateManager()
+	go connectionListener(ln, &host)
+	startClient(&host)
 }
 
 func main() {
