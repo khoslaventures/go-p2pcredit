@@ -1,12 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
+
+	"github.com/google/go-querystring/query"
 )
 
 // Interacts with Fakechain by making HTTP calls.
@@ -17,65 +17,81 @@ const candidateKey = "akash"
 
 // AddUser is for adding a user to FakeChain
 type AddUser struct {
-	Candidate string `json:"candidate"`
-	ID        string `json:"public_key"`
-	Balance   uint64 `json:"amount"`
-	Password  string `json:"private_key"`
-	PeerInfo  struct {
-		IP   string `json:"host"`
-		Port uint16 `json:"port"`
-	} `json:"peering_info"`
+	Candidate string `url:"candidate"`
+	ID        string `url:"public_key"`
+	Balance   uint64 `url:"amount"`
+	Password  string `url:"private_key"`
+	PeerInfo  string `url:"peering_info"`
+}
+
+// PeerInfo is for connection information on peers
+type PeerInfo struct {
+	IP   string `json:"host"`
+	Port uint16 `json:"port"`
 }
 
 // PayUser is for paying someone on FakeChain
 type PayUser struct {
-	Candidate string `json:"candidate"`
-	Sender    string `json:"sender"`
-	Receiver  string `json:"receiver"`
-	Password  string `json:"private_key"`
-	Amount    uint   `json:"amount"`
+	Candidate string `url:"candidate"`
+	Sender    string `url:"sender"`
+	Receiver  string `url:"receiver"`
+	Password  string `url:"private_key"`
+	Amount    uint   `url:"amount"`
 }
 
 // GetOrDeleteUsers is used to get a JSON of users or delete all users
 type GetOrDeleteUsers struct {
-	Candidate string `json:"candidate"`
+	Candidate string `url:"candidate"`
 }
 
-func addUser(id string, balance uint64, password string, ip string, port uint16) {
-	endpoint := "add_user"
-	m := AddUser{Candidate: candidate, ID: id, Balance: balance, Password: password}
-	m.PeerInfo.IP = ip
-	m.PeerInfo.Port = port
+func addUser(id string, balance uint64, password string, ip string, port uint16) string {
+	endpoint := "add_user?"
+	p := PeerInfo{IP: ip, Port: port}
+	pb, err := json.Marshal(p)
+	ferror(err)
+	m := AddUser{Candidate: candidate, ID: id, Balance: balance, Password: password, PeerInfo: string(pb)}
 
-	b, err := json.Marshal(m)
+	v, err := query.Values(m)
 	ferror(err)
 
-	resp, err := http.Post(destURL+endpoint, "application/json", bytes.NewBuffer(b))
+	url := destURL + endpoint + v.Encode()
+	resp, err := http.Get(url)
 	ferror(err)
 
-	fmt.Println(resp.Body)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	ferror(err)
+	bodyString := string(bodyBytes)
+	// Should do proper error check, but leave it
+	return bodyString
 }
 
-func payUser(sender string, receiver string, password string, amount uint) {
-	endpoint := "pay_user"
+func payUser(sender string, receiver string, password string, amount uint) string {
+	endpoint := "pay_user?"
 	m := PayUser{candidate, sender, receiver, password, amount}
 
-	b, err := json.Marshal(m)
+	v, err := query.Values(m)
 	ferror(err)
 
-	resp, err := http.Post(destURL+endpoint, "application/json", bytes.NewBuffer(b))
+	url := destURL + endpoint + v.Encode()
+	resp, err := http.Get(url)
 	ferror(err)
 
-	fmt.Println(resp.Body)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	ferror(err)
+	bodyString := string(bodyBytes)
+	// Should do proper error check, but leave it
+	return bodyString
 }
 
 func getUsers() {
-	endpoint := "get_users"
+	endpoint := "get_users?"
 	m := GetOrDeleteUsers{candidateKey}
-	b, err := json.Marshal(m)
+
+	v, err := query.Values(m)
 	ferror(err)
 
-	resp, err := http.Post(destURL+endpoint, "application/json", bytes.NewBuffer(b))
+	url := destURL + endpoint + v.Encode()
+	resp, err := http.Get(url)
 	ferror(err)
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -87,23 +103,33 @@ func getUsers() {
 	err = json.Unmarshal(body, &data)
 	ferror(err)
 
+	// Probably should print something better..
 	fmt.Printf("Results: %v\n", data)
 }
 
-func deleteUsers() {
-	endpoint := "delete_all_users"
+func deleteUsers() string {
+	endpoint := "delete_all_users?"
 	m := GetOrDeleteUsers{candidateKey}
-	b, err := json.Marshal(m)
+	v, err := query.Values(m)
 	ferror(err)
 
-	resp, err := http.Post(destURL+endpoint, "application/json", bytes.NewBuffer(b))
+	url := destURL + endpoint + v.Encode()
+	resp, err := http.Get(url)
 	ferror(err)
 
-	fmt.Println(resp.Body)
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		ferror(err)
+		bodyString := string(bodyBytes)
+		fmt.Println(bodyString)
+		return bodyString
+	}
+	// TODO: Should error properly
+	return resp.Status
 }
 
 func ferror(err error) {
 	if err != nil {
-		log.Fatalln(err)
+		panic(err)
 	}
 }

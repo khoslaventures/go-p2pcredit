@@ -1,10 +1,24 @@
 package main
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
-func TestSum(t *testing.T) {
-	total := Sum(5, 5)
-	if total != 10 {
-		t.Errorf("Sum was incorrect, got: %d, want: %d.", total, 10)
-	}
+func TestAPI(t *testing.T) {
+	// Add two users
+	res := addUser("akash", 200, "password1", "localhost", 4000)
+	fmt.Println(res)
+	res = addUser("bob", 100, "password2", "localhost", 4001)
+	fmt.Println(res)
+	getUsers()
+
+	// Akash pays bob 50
+	res = payUser("akash", "bob", "password1", 50)
+	fmt.Println(res)
+	getUsers()
+
+	// Delete all users
+	deleteUsers()
+	getUsers()
 }

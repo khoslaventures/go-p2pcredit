@@ -40,6 +40,8 @@ type Host struct {
 	peers        map[*Peer]bool
 	peerIDtoPeer map[string]*Peer
 	messages     chan *MessageChan
+	incoming     chan *MessageChan
+	outgoing     chan *MessageChan
 	register     chan *Peer
 	unregister   chan *Peer
 	Balance      uint64
@@ -67,6 +69,7 @@ func (host *Host) startHandler() {
 			}
 		case msgChan := <-host.messages:
 			m := msgChan.msg
+			fmt.Println(m)
 			p := msgChan.peer
 			switch msgChan.msg.Type {
 			case "Propose":
@@ -74,8 +77,8 @@ func (host *Host) startHandler() {
 				p.PeerID = msgChan.msg.PeerID
 				p.trustline = &Trustline{HostBalance: 0, PeerBalance: 0}
 			case "Pay":
-				p.trustline.HostBalance += m.Amount
-				p.trustline.PeerBalance -= m.Amount
+				// p.trustline.HostBalance += m.Amount
+				// p.trustline.PeerBalance -= m.Amount
 				// if this trustline exceeds 100, then settle on chain. Perhaps
 				// the flow should be:
 				// - Host says he wants to send money
@@ -84,11 +87,11 @@ func (host *Host) startHandler() {
 				// - Host will craft messages through a loop, such that
 				// for each 100 reached on HostAmount, A settle is sent
 			case "Settle":
-				if m.Amount > 0 && m.Amount <= p.trustline.HostBalance {
-					// make call to fakechain for payment, subtract balances
-					p.trustline.HostBalance -= m.Amount
-					p.trustline.PeerBalance += m.Amount
-				}
+				// if m.Amount > 0 && m.Amount <= p.trustline.HostBalance {
+				//     // make call to fakechain for payment, subtract balances
+				//     p.trustline.HostBalance -= m.Amount
+				//     p.trustline.PeerBalance += m.Amount
+				// }
 
 			default:
 				// close the connection
