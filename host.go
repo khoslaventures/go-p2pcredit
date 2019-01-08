@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
+
+	"github.com/oleiade/lane"
 )
 
 // Trustline is a balance tracker between the two parties. Starts at 0 each.
@@ -38,6 +39,7 @@ type Host struct {
 	proposal     chan *Proposal
 	register     chan *Peer
 	unregister   chan *Peer
+	urgentcmd    *lane.Queue
 	Balance      uint64
 	password     string
 	IP           string
@@ -71,27 +73,12 @@ func (host *Host) stateManager() {
 					delete(host.peerIDtoPeer, peer.PeerID)
 				}
 			}
-			peer.socket.Close()
+			peer.socket.Close() // Maybe you don't want to close socket on unregister.
 		case prop := <-host.proposal:
-			fmt.Println("Proposal Received!")
-			// TODO: Potential error: Because of our looping reader, this might not
-			// read anything from stdin
-			fmt.Printf("%s is trying to open a trustline. Accept? [y/n]: ", prop.msg.HostID)
-			in, _ := host.reader.ReadString('\n')
-			fmt.Println("READ: " + in)
-			if strings.TrimSpace(strings.ToLower(in)) == "y" {
-				prop.peer.PeerID = prop.msg.HostID
-				prop.peer.trustline = &Trustline{0, 0}
-				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
-				// Should respond on success, send ProposeAccept/Reject?...
-				msg := Message{host.Name, prop.peer.PeerID, "ProposeAccept", 0}
-				host.sendData(&msg)
-			} else {
-				msg := Message{host.Name, prop.msg.HostID, "ProposeReject", 0}
-				host.sendData(&msg)
-				host.unregister <- prop.peer
-				// prop.peer.socket.Close()
-			}
+			// TODO: This could probably be done more seamlessly.
+			fmt.Println("\nProposal Received!")
+			fmt.Printf("\n%s is trying to open a trustline. Accept? [y/n]: ", prop.msg.HostID)
+			host.urgentcmd.Enqueue(prop)
 		case msg := <-host.inbound:
 			// Update local state
 			// msg.HostID here will be our PeerID.
@@ -108,12 +95,22 @@ func (host *Host) stateManager() {
 					peer.trustline.PeerBalance += int(msg.Amount)
 				}
 			case "ProposeAccept":
-				peer := host.peerIDtoPeer[msg.PeerID]
-				peer.pending = false
-				fmt.Printf("%s has accepted your trustline request!", msg.PeerID)
+				// fmt.Println("Received ProposeAccept")
+				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
+					peer.pending = false
+					fmt.Printf("%s has accepted your trustline request!\n", msg.PeerID)
+				} else {
+					fmt.Printf("Err: PeerID %s not found\n", msg.PeerID)
+				}
 			case "ProposeReject":
-				peer := host.peerIDtoPeer[msg.PeerID]
-				host.unregister <- peer
+				fmt.Println("Received ProposeReject")
+				if peer, ok := host.peerIDtoPeer[msg.HostID]; ok {
+					peer = host.peerIDtoPeer[msg.PeerID]
+					host.unregister <- peer
+					fmt.Printf("%s has rejected your trustline request!\n", msg.PeerID)
+				} else {
+					fmt.Printf("Err: PeerID %s not found\n", msg.PeerID)
+				}
 			}
 		case msg := <-host.outbound:
 			// Update local state
@@ -122,7 +119,7 @@ func (host *Host) stateManager() {
 				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 					peer.trustline.HostBalance -= int(msg.Amount)
 					peer.trustline.PeerBalance += int(msg.Amount)
-					host.sendData(msg)
+					peer.data <- serialize(msg)
 				}
 			case "Settle":
 				if host.Balance > msg.Amount {
@@ -131,24 +128,44 @@ func (host *Host) stateManager() {
 						peer.trustline.HostBalance += int(msg.Amount)
 						peer.trustline.PeerBalance -= int(msg.Amount)
 						host.Balance -= msg.Amount
-						host.sendData(msg)
+						peer.data <- serialize(msg)
 					}
 
 				} else {
 					fmt.Printf("Err: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
 				}
 			case "Propose":
-				host.sendData(msg)
+				fmt.Println("Sending Propose")
+				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
+					peer.data <- serialize(msg)
+				}
+			case "ProposeAccept":
+				fmt.Println("Sending ProposeAccept")
+				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
+					peer.data <- serialize(msg)
+				}
+			case "ProposeReject":
+				fmt.Println("Sending ProposeReject")
+				if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
+					peer.data <- serialize(msg)
+				}
 			}
 		}
 	}
 }
 
-func (host *Host) sendData(msg *Message) {
-	mb, err := json.Marshal(msg)
-	ferror(err) // should never happen
-	sock := host.peerIDtoPeer[msg.PeerID].socket
-	sock.Write(mb)
+func (host *Host) send(peer *Peer) {
+	for {
+		select {
+		case mb, ok := <-peer.data:
+			fmt.Println("send")
+			if !ok {
+				host.unregister <- peer
+				return
+			}
+			peer.socket.Write(mb)
+		}
+	}
 }
 
 // For server to read what comes from a socket for a given Peer. This
@@ -182,6 +199,8 @@ func (host *Host) receive(peer *Peer) {
 	}
 }
 
+// connectionListener will wait for connections and create a receive and send
+// goroutine for each peer.
 func connectionListener(ln net.Listener, host *Host) {
 	for {
 		conn, err := ln.Accept()
@@ -189,12 +208,15 @@ func connectionListener(ln net.Listener, host *Host) {
 			fmt.Println(err)
 		}
 		// Empty PeerID until identified
-		peer := &Peer{PeerID: "", socket: conn, trustline: nil, data: make(chan []byte)}
+		peer := &Peer{PeerID: "", socket: conn, trustline: nil, data: make(chan []byte), pending: true}
 		host.register <- peer
 		go host.receive(peer)
+		go host.send(peer)
 	}
 }
 
+// createConnection is for the host to create connections and creates a receive
+// and send goroutine for the specified peer.
 func (host *Host) createConnection(peerID string, pi *PeerInfo) {
 	var cstr string
 	if pi.IP == "localhost" {
@@ -209,4 +231,6 @@ func (host *Host) createConnection(peerID string, pi *PeerInfo) {
 	// Create peer, place in mapping
 	peer := &Peer{PeerID: peerID, socket: conn, trustline: &Trustline{0, 0}, data: make(chan []byte), pending: true}
 	host.register <- peer
+	go host.receive(peer)
+	go host.send(peer)
 }

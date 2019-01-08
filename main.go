@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/oleiade/lane"
 	"github.com/urfave/cli"
 )
 
@@ -30,7 +31,7 @@ func startClient(host *Host) {
 			// example: pay Bob 10
 			if len(s) == 3 {
 				peerID := s[1]
-				if peer, exists := host.peerIDtoPeer[peerID]; !exists {
+				if peer, exists := host.peerIDtoPeer[peerID]; exists {
 					amt, err := strconv.ParseUint(s[2], 10, 64)
 					if err != nil {
 						fmt.Println(err)
@@ -41,10 +42,10 @@ func startClient(host *Host) {
 						fmt.Println("Payment queued.")
 						host.outbound <- &msg
 					} else {
-						fmt.Printf("Err: Connection with %s is waiting to be accepted.", peerID)
+						fmt.Printf("Err: Connection with %s is waiting to be accepted.\n", peerID)
 					}
 				} else {
-					fmt.Printf("Err: Connection with %s does not exists.", peerID)
+					fmt.Printf("Err: Connection with %s does not exists.\n", peerID)
 				}
 			}
 		case "settle":
@@ -52,21 +53,25 @@ func startClient(host *Host) {
 			// only the person with debt can settle. (i.e. negative balance)
 			if len(s) == 3 {
 				peerID := s[1]
-				if peer, exists := host.peerIDtoPeer[peerID]; !exists {
+				if peer, exists := host.peerIDtoPeer[peerID]; exists {
 					amt, err := strconv.ParseUint(s[2], 10, 64)
 					if err != nil {
 						fmt.Println(err)
 						continue
 					}
-					if !peer.pending {
-						msg := Message{host.Name, peerID, "Settle", amt}
-						fmt.Println("Settlement queued.")
-						host.outbound <- &msg
+					if peer.trustline.HostBalance >= 0 {
+						fmt.Printf("Err: Nothing to settle as HostBalance is %d\n", peer.trustline.HostBalance)
 					} else {
-						fmt.Printf("Err: Connection with %s is waiting to be accepted.", peerID)
+						if !peer.pending {
+							msg := Message{host.Name, peerID, "Settle", amt}
+							fmt.Println("Settlement queued.")
+							host.outbound <- &msg
+						} else {
+							fmt.Printf("Err: Connection with %s is waiting to be accepted.\n", peerID)
+						}
 					}
 				} else {
-					fmt.Printf("Err: Connection with %s does not exists.", peerID)
+					fmt.Printf("Err: Connection with %s does not exists.\n", peerID)
 				}
 			}
 		case "propose":
@@ -86,7 +91,7 @@ func startClient(host *Host) {
 						}
 					}
 				} else {
-					fmt.Printf("Err: Connection with %s already exists.", peerID)
+					fmt.Printf("Err: Connection with %s already exists.\n", peerID)
 				}
 			}
 		case "balance":
@@ -98,6 +103,26 @@ func startClient(host *Host) {
 		case "delete":
 			// delete all users on the FakeChain
 			deleteUsers()
+		case "y":
+			if host.urgentcmd.Head() != nil {
+				p := host.urgentcmd.Dequeue()
+				prop := p.(*Proposal)
+				prop.peer.PeerID = prop.msg.HostID
+				prop.peer.trustline = &Trustline{0, 0}
+				prop.peer.pending = false
+				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
+				msg := Message{host.Name, prop.peer.PeerID, "ProposeAccept", 0}
+				host.outbound <- &msg
+			}
+		case "n":
+			if host.urgentcmd.Head() != nil {
+				p := host.urgentcmd.Dequeue()
+				prop := p.(*Proposal)
+				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
+				msg := Message{host.Name, prop.msg.HostID, "ProposeReject", 0}
+				host.outbound <- &msg
+				host.unregister <- prop.peer
+			}
 		case "exit":
 			fmt.Println("TODO")
 			// settle all debts
@@ -109,6 +134,7 @@ func startClient(host *Host) {
 func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	fmt.Println("Starting...")
 	reader := bufio.NewReader(os.Stdin)
+	queue := lane.NewQueue()
 	host := Host{
 		Name:         name,
 		Port:         port,
@@ -119,6 +145,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 		proposal:     make(chan *Proposal),
 		register:     make(chan *Peer),
 		unregister:   make(chan *Peer),
+		urgentcmd:    queue,
 		Balance:      balance,
 		reader:       reader,
 	}
@@ -129,7 +156,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 
 	// Add the user to Fakechain! TODO: Ensure success, if not, panic
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
-	fmt.Printf("User %s created and registered on FakeChain!", host.Name)
+	fmt.Printf("User %s created and registered on FakeChain!\n", host.Name)
 
 	pstr := fmt.Sprintf(":%d", port)
 	ln, err := net.Listen("tcp", pstr)
@@ -137,7 +164,7 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 		fmt.Println(err)
 	}
 
-	fmt.Println("\nSet up complete, listening on port ", pstr)
+	fmt.Println("Set up complete, listening on port", pstr)
 
 	go host.stateManager()
 	go connectionListener(ln, &host)

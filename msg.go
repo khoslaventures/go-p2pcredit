@@ -17,12 +17,9 @@ type Message struct {
 }
 
 func serialize(msg *Message) []byte {
-	b, err := json.Marshal(msg)
-	if err != nil {
-		fmt.Println(err)
-		return nil
-	}
-	return b
+	mb, err := json.Marshal(msg)
+	ferror(err) // should never happen
+	return mb
 }
 
 func parseRawBytes(b []byte) Message {
