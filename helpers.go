@@ -39,9 +39,9 @@ func (host *Host) setPassword() {
 	host.password = string(pass)
 }
 
-func (host *Host) setIP(isMainNet bool) {
-	if isMainNet {
-		fmt.Println("Running on mainnet!")
+func (host *Host) setIP(isLocal bool) {
+	if !isLocal {
+		fmt.Println("Running with public IP!")
 		fmt.Printf("Getting IP address from ipify...\n")
 		url := "https://api.ipify.org?format=text"
 
@@ -60,7 +60,7 @@ func (host *Host) setIP(isMainNet bool) {
 		host.IP = string(ip)
 		fmt.Printf("Your IP is: %s\n", ip)
 	} else {
-		fmt.Println("Running on local network!")
+		fmt.Println("Running with localhost only!")
 		host.IP = "localhost"
 	}
 }

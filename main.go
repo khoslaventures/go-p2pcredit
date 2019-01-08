@@ -175,7 +175,7 @@ func startClient(host *Host) {
 	}
 }
 
-func startService(name string, balance uint32, port uint16, isMainNet bool) {
+func startService(name string, balance uint32, port uint16, isLocal bool) {
 	fmt.Println("Starting...")
 	reader := bufio.NewReader(os.Stdin)
 	queue := lane.NewQueue()
@@ -196,7 +196,7 @@ func startService(name string, balance uint32, port uint16, isMainNet bool) {
 
 	fmt.Printf("Hi %s! We'll need a password for your Fakechain account.\n", host.Name)
 	host.setPassword()
-	host.setIP(isMainNet)
+	host.setIP(isLocal)
 
 	// Add the user to Fakechain! TODO: Ensure success, if not, panic
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
@@ -236,13 +236,12 @@ func main() {
 			Destination: &port,
 		},
 		cli.BoolFlag{
-			Name:  "mainnet, m",
-			Usage: "Launch on mainnet. Else, defaults to local network.",
+			Name:  "local, l",
+			Usage: "Launch on localhost and publish localhost as IP in PeerInfo.",
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		// alternative to using flags, just two args.
 		if c.NArg() >= 2 {
 			name := c.Args().Get(0)
 			balstr := c.Args().Get(1)
@@ -258,7 +257,7 @@ func main() {
 			fmt.Println(balance)
 			fmt.Println(port)
 			fmt.Println(c.Bool("mainnet"))
-			startService(name, uint32(balance), uint16(port), c.Bool("mainnet"))
+			startService(name, uint32(balance), uint16(port), c.Bool("local"))
 		}
 		return nil
 	}
