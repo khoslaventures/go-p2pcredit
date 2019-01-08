@@ -20,7 +20,7 @@ const candidateKey = "akash"
 type AddUser struct {
 	Candidate string `url:"candidate"`
 	ID        string `url:"public_key"`
-	Balance   uint64 `url:"amount"`
+	Balance   uint32 `url:"amount"`
 	Password  string `url:"private_key"`
 	PeerInfo  string `url:"peering_info"`
 }
@@ -33,7 +33,7 @@ type PeerInfo struct {
 
 // PeerDetails is used to serialize the data from getUsers
 type PeerDetails struct {
-	Balance  uint64   `json:"amount"`
+	Balance  uint32   `json:"amount"`
 	PeerInfo PeerInfo `json:"peering_info"`
 }
 
@@ -43,7 +43,7 @@ type PayUser struct {
 	Sender    string `url:"sender"`
 	Receiver  string `url:"receiver"`
 	Password  string `url:"private_key"`
-	Amount    uint64 `url:"amount"`
+	Amount    uint32 `url:"amount"`
 }
 
 // GetOrDeleteUsers is used to get a JSON of users or delete all users
@@ -52,7 +52,7 @@ type GetOrDeleteUsers struct {
 }
 
 // TODO: Handle incorrect password in the CLI, not here
-func addUser(id string, balance uint64, password string, ip string, port uint16) string {
+func addUser(id string, balance uint32, password string, ip string, port uint16) string {
 	endpoint := "add_user?"
 	p := PeerInfo{IP: ip, Port: port}
 	pb, err := json.Marshal(p)
@@ -73,7 +73,7 @@ func addUser(id string, balance uint64, password string, ip string, port uint16)
 	return bodyString
 }
 
-func payUser(sender string, receiver string, password string, amount uint64) string {
+func payUser(sender string, receiver string, password string, amount uint32) string {
 	endpoint := "pay_user?"
 	m := PayUser{candidate, sender, receiver, password, amount}
 

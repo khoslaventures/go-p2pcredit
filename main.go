@@ -33,7 +33,7 @@ func startClient(host *Host) {
 			if len(s) == 3 {
 				peerID := s[1]
 				if peer, exists := host.peerIDtoPeer[peerID]; exists {
-					amt, err := strconv.ParseUint(s[2], 10, 64)
+					amt, err := strconv.ParseUint(s[2], 10, 32)
 					if err != nil {
 						fmt.Println(err)
 						continue
@@ -43,12 +43,13 @@ func startClient(host *Host) {
 						continue
 					}
 					if !peer.pending {
+						// TODO: Messages are bundling up, need to fix
 						bal := peer.trustline.PeerBalance
 						newBal := bal + int(amt)
 						if newBal > trustlineLimit {
 							// Send the amount that will increase the balance to 100
 							payment := trustlineLimit - bal
-							msgPay := Message{host.Name, peerID, "Pay", uint64(payment)}
+							msgPay := Message{host.Name, peerID, "Pay", uint32(payment)}
 							fmt.Println("Payment to trustlineLimit queued.")
 							host.outbound <- &msgPay
 
@@ -61,7 +62,7 @@ func startClient(host *Host) {
 							remainder := newBal - trustlineLimit
 							amt = uint64(remainder)
 						}
-						msg := Message{host.Name, peerID, "Pay", amt}
+						msg := Message{host.Name, peerID, "Pay", uint32(amt)}
 						fmt.Println("Payment queued.")
 						host.outbound <- &msg
 					} else {
@@ -77,7 +78,7 @@ func startClient(host *Host) {
 			if len(s) == 3 {
 				peerID := s[1]
 				if peer, exists := host.peerIDtoPeer[peerID]; exists {
-					amt, err := strconv.ParseUint(s[2], 10, 64)
+					amt, err := strconv.ParseUint(s[2], 10, 32)
 					if err != nil {
 						fmt.Println(err)
 						continue
@@ -86,7 +87,7 @@ func startClient(host *Host) {
 						fmt.Printf("Err: Nothing to settle as HostBalance is %d\n", peer.trustline.HostBalance)
 					} else {
 						if !peer.pending {
-							msg := Message{host.Name, peerID, "Settle", amt}
+							msg := Message{host.Name, peerID, "Settle", uint32(amt)}
 							fmt.Println("Settlement queued.")
 							host.outbound <- &msg
 						} else {
@@ -146,14 +147,26 @@ func startClient(host *Host) {
 				host.outbound <- &msg
 			}
 		case "exit":
-			fmt.Println("TODO")
+			fmt.Println("Exiting...")
+			// TODO: Right now, this only works
+			bal := int(host.Balance)
+			for id, peer := range host.peerIDtoPeer {
+				if peer.trustline.HostBalance < 0 {
+					if bal-peer.trustline.PeerBalance > 0 {
+						msg := Message{host.Name, id, "Settle", uint32(peer.trustline.PeerBalance)}
+						fmt.Println("Settlement queued.")
+						host.outbound <- &msg
+						bal -= peer.trustline.PeerBalance
+					}
+				}
+			}
 			// settle all debts
 			// exit with code
 		}
 	}
 }
 
-func startService(name string, balance uint64, port uint16, isMainNet bool) {
+func startService(name string, balance uint32, port uint16, isMainNet bool) {
 	fmt.Println("Starting...")
 	reader := bufio.NewReader(os.Stdin)
 	queue := lane.NewQueue()
@@ -180,13 +193,17 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
 	fmt.Printf("User %s created and registered on FakeChain!\n", host.Name)
 
-	pstr := fmt.Sprintf(":%d", port)
-	ln, err := net.Listen("tcp", pstr)
+	cstr := fmt.Sprintf("localhost:%d", port)
+	addr, err := net.ResolveTCPAddr("tcp", cstr)
+	if err != nil {
+		panic(err)
+	}
+	ln, err := net.ListenTCP("tcp", addr)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println("Set up complete, listening on port", pstr)
+	fmt.Println("Set up complete, listening on " + cstr)
 
 	go host.stateManager()
 	go host.connectionListener(ln)
@@ -220,7 +237,7 @@ func main() {
 		if c.NArg() >= 2 {
 			name := c.Args().Get(0)
 			balstr := c.Args().Get(1)
-			balance, err := strconv.ParseUint(balstr, 10, 64)
+			balance, err := strconv.ParseUint(balstr, 10, 32)
 			if err != nil {
 				return err
 			}
@@ -232,7 +249,7 @@ func main() {
 			fmt.Println(balance)
 			fmt.Println(port)
 			fmt.Println(c.Bool("mainnet"))
-			startService(name, balance, uint16(port), c.Bool("mainnet"))
+			startService(name, uint32(balance), uint16(port), c.Bool("mainnet"))
 		}
 		return nil
 	}

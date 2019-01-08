@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
 
+	"github.com/k0kubun/pp"
 	"github.com/oleiade/lane"
 )
 
@@ -21,7 +23,7 @@ type Trustline struct {
 type Peer struct {
 	PeerID    string
 	trustline *Trustline
-	socket    net.Conn
+	socket    *net.TCPConn
 	data      chan []byte
 	PeerInfo  *PeerInfo
 	pending   bool
@@ -40,7 +42,7 @@ type Host struct {
 	register     chan *Peer
 	unregister   chan *Peer
 	urgentcmd    *lane.Queue
-	Balance      uint64
+	Balance      uint32
 	password     string
 	IP           string
 	reader       *bufio.Reader
@@ -192,29 +194,37 @@ func (host *Host) receive(peer *Peer) {
 		}
 		if n > 0 {
 			fmt.Println("RECEIVED: " + string(b))
-			var msg Message
-			err = json.Unmarshal(b[:n], &msg)
-			if err != nil {
-				fmt.Println(err)
-				host.unregister <- peer
-				// peer.socket.Clos()
-				break
-			}
-			if msg.Type == "Propose" {
-				prop := Proposal{peer, &msg}
-				host.proposal <- &prop
-			} else {
-				host.inbound <- &msg
+			var buf bytes.Buffer
+			buf.Write(b[:n])
+			for buf.Len() > 0 {
+				var msg Message
+				d, err := buf.ReadBytes('}')
+				fmt.Println(string(d))
+				pp.Println(d)
+				err = json.Unmarshal(d, &msg)
+				if err != nil {
+					fmt.Println(err)
+					host.unregister <- peer
+					break
+				}
+				if msg.Type == "Propose" {
+					prop := Proposal{peer, &msg}
+					host.proposal <- &prop
+				} else {
+					host.inbound <- &msg
+				}
+				fmt.Println(buf.Len())
 			}
 		}
+
 	}
 }
 
 // connectionListener will wait for connections and create a receive and send
 // goroutine for each peer.
-func (host *Host) connectionListener(ln net.Listener) {
+func (host *Host) connectionListener(ln *net.TCPListener) {
 	for {
-		conn, err := ln.Accept()
+		conn, err := ln.AcceptTCP()
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -229,13 +239,12 @@ func (host *Host) connectionListener(ln net.Listener) {
 // createConnection is for the host to create connections and creates a receive
 // and send goroutine for the specified peer.
 func (host *Host) createConnection(peerID string, pi *PeerInfo) {
-	var cstr string
-	if pi.IP == "localhost" {
-		cstr = fmt.Sprintf(":%d", pi.Port)
-	} else {
-		cstr = fmt.Sprintf("%s:%d", pi.IP, pi.Port)
+	cstr := fmt.Sprintf("%s:%d", pi.IP, pi.Port)
+	addr, err := net.ResolveTCPAddr("tcp", cstr)
+	if err != nil {
+		panic(err)
 	}
-	conn, err := net.Dial("tcp", cstr)
+	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
 		fmt.Println(err)
 	}
