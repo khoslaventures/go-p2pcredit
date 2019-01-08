@@ -30,13 +30,19 @@ type PeerInfo struct {
 	Port uint16 `json:"port"`
 }
 
+// PeerDetails is used to serialize the data from getUsers
+type PeerDetails struct {
+	Balance  uint64   `json:"amount"`
+	PeerInfo PeerInfo `json:"peering_info"`
+}
+
 // PayUser is for paying someone on FakeChain
 type PayUser struct {
 	Candidate string `url:"candidate"`
 	Sender    string `url:"sender"`
 	Receiver  string `url:"receiver"`
 	Password  string `url:"private_key"`
-	Amount    uint   `url:"amount"`
+	Amount    uint64 `url:"amount"`
 }
 
 // GetOrDeleteUsers is used to get a JSON of users or delete all users
@@ -44,6 +50,7 @@ type GetOrDeleteUsers struct {
 	Candidate string `url:"candidate"`
 }
 
+// TODO: Handle incorrect password in the CLI, not here
 func addUser(id string, balance uint64, password string, ip string, port uint16) string {
 	endpoint := "add_user?"
 	p := PeerInfo{IP: ip, Port: port}
@@ -65,7 +72,7 @@ func addUser(id string, balance uint64, password string, ip string, port uint16)
 	return bodyString
 }
 
-func payUser(sender string, receiver string, password string, amount uint) string {
+func payUser(sender string, receiver string, password string, amount uint64) string {
 	endpoint := "pay_user?"
 	m := PayUser{candidate, sender, receiver, password, amount}
 
@@ -83,7 +90,7 @@ func payUser(sender string, receiver string, password string, amount uint) strin
 	return bodyString
 }
 
-func getUsers() {
+func getUsers() map[string]PeerDetails {
 	endpoint := "get_users?"
 	m := GetOrDeleteUsers{candidateKey}
 
@@ -99,12 +106,18 @@ func getUsers() {
 		panic(err.Error())
 	}
 
-	var data interface{}
+	var data map[string]PeerDetails
 	err = json.Unmarshal(body, &data)
 	ferror(err)
 
-	// Probably should print something better..
-	fmt.Printf("Results: %v\n", data)
+	printPeerDetails(data)
+	return data
+}
+
+func printPeerDetails(data map[string]PeerDetails) {
+	for id, info := range data {
+		fmt.Printf("%s (%s, %d): %d\n", id, info.PeerInfo.IP, info.PeerInfo.Port, info.Balance)
+	}
 }
 
 func deleteUsers() string {
@@ -126,10 +139,4 @@ func deleteUsers() string {
 	}
 	// TODO: Should error properly
 	return resp.Status
-}
-
-func ferror(err error) {
-	if err != nil {
-		panic(err)
-	}
 }

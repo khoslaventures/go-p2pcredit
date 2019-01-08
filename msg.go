@@ -13,7 +13,7 @@ type Message struct {
 	HostID string
 	PeerID string
 	Type   string
-	Amount uint
+	Amount uint64
 }
 
 func serialize(msg *Message) []byte {
