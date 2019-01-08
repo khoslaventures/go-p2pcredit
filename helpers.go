@@ -8,6 +8,16 @@ import (
 	"github.com/howeyc/gopass"
 )
 
+// Print balance in each trustline and total trustline balance
+func displayTrustlineBalances(host *Host) {
+	totalTrustlineBalance := 0
+	for id, peer := range host.peerIDtoPeer {
+		fmt.Printf("%s: %d\n", id, peer.trustline.HostBalance)
+		totalTrustlineBalance += peer.trustline.HostBalance
+	}
+	fmt.Printf("Total: %d\n", totalTrustlineBalance)
+}
+
 func ferror(err error) {
 	if err != nil {
 		panic(err)

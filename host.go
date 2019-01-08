@@ -23,6 +23,8 @@ type Peer struct {
 	trustline *Trustline
 	socket    net.Conn
 	data      chan []byte
+	PeerInfo  *PeerInfo
+	pending   bool
 }
 
 // Host will hold all of the available peer received data and
@@ -51,11 +53,17 @@ type Proposal struct {
 	msg  *Message
 }
 
+// The stateManager manages states from inbound and outbound and sends messages
+// outbound.
 func (host *Host) stateManager() {
 	for {
 		select {
 		case peer := <-host.register:
 			host.peers[peer] = true
+			// for the createConnection case
+			if peer.PeerID != "" {
+				host.peerIDtoPeer[peer.PeerID] = peer
+			}
 		case peer := <-host.unregister:
 			if _, ok := host.peers[peer]; ok {
 				close(peer.data)
@@ -64,8 +72,9 @@ func (host *Host) stateManager() {
 					delete(host.peerIDtoPeer, peer.PeerID)
 				}
 			}
+			peer.socket.Close()
 		case prop := <-host.proposal:
-			// Potential error: Because of our looping reader, this might not
+			// TODO: Potential error: Because of our looping reader, this might not
 			// read anything from stdin
 			fmt.Printf("%s is trying to open a trustline. Accept? [y/n]: ", prop.msg.HostID)
 			reader := bufio.NewReader(os.Stdin)
@@ -75,9 +84,13 @@ func (host *Host) stateManager() {
 				prop.peer.trustline = &Trustline{0, 0}
 				host.peerIDtoPeer[prop.msg.HostID] = prop.peer
 				// Should respond on success, send ProposeAccept/Reject?...
+				msg := Message{host.Name, prop.peer.PeerID, "ProposeAccept", 0}
+				host.sendData(&msg)
 			} else {
+				msg := Message{host.Name, prop.msg.HostID, "ProposeReject", 0}
+				host.sendData(&msg)
 				host.unregister <- prop.peer
-				prop.peer.socket.Close()
+				// prop.peer.socket.Close()
 			}
 		case msg := <-host.inbound:
 			// Update local state
@@ -95,7 +108,12 @@ func (host *Host) stateManager() {
 					peer.trustline.PeerBalance += int(msg.Amount)
 				}
 			case "ProposeAccept":
+				peer := host.peerIDtoPeer[msg.PeerID]
+				peer.pending = false
+				fmt.Printf("%s has accepted your trustline request!", msg.PeerID)
 			case "ProposeReject":
+				peer := host.peerIDtoPeer[msg.PeerID]
+				host.unregister <- peer
 			}
 		case msg := <-host.outbound:
 			// Update local state
@@ -110,16 +128,14 @@ func (host *Host) stateManager() {
 				if host.Balance > msg.Amount {
 					if peer, ok := host.peerIDtoPeer[msg.PeerID]; ok {
 						payUser(msg.HostID, msg.PeerID, host.password, msg.Amount)
-						peer.trustline.HostBalance -= int(msg.Amount)
-						peer.trustline.PeerBalance += int(msg.Amount)
+						peer.trustline.HostBalance += int(msg.Amount)
+						peer.trustline.PeerBalance -= int(msg.Amount)
 						host.Balance -= msg.Amount
 						host.sendData(msg)
 					}
 				} else {
 					fmt.Printf("Err: Insufficient funds to settle with %s at amount: %d\n", msg.PeerID, msg.Amount)
 				}
-			case "ProposeAccept":
-			case "ProposeReject":
 			}
 		}
 	}
@@ -132,12 +148,6 @@ func (host *Host) sendData(msg *Message) {
 	sock.Write(mb)
 }
 
-func (host *Host) cmdManager() {
-	for {
-		select {}
-	}
-}
-
 // For server to read what comes from a socket for a given Peer. This
 // is ran as a goroutine. Shutsdown if invalid peer.
 func (host *Host) receive(peer *Peer) {
@@ -146,7 +156,7 @@ func (host *Host) receive(peer *Peer) {
 		len, err := peer.socket.Read(b)
 		if err != nil {
 			host.unregister <- peer
-			peer.socket.Close()
+			// peer.socket.Close()
 			break
 		}
 		if len > 0 {
@@ -156,7 +166,7 @@ func (host *Host) receive(peer *Peer) {
 			err = json.Unmarshal(b, &msg)
 			if err != nil {
 				host.unregister <- peer
-				peer.socket.Close()
+				// peer.socket.Close()
 				break
 			}
 			if msg.Type == "Proposal" {
@@ -169,11 +179,7 @@ func (host *Host) receive(peer *Peer) {
 	}
 }
 
-func (host *Host) send(peer *Peer, msg Message) {
-	host.outbound <- &msg
-}
-
-func startConnectionListener(ln net.Listener, host Host) {
+func connectionListener(ln net.Listener, host Host) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -183,32 +189,17 @@ func startConnectionListener(ln net.Listener, host Host) {
 		peer := &Peer{PeerID: "", socket: conn, trustline: nil, data: make(chan []byte)}
 		host.register <- peer
 		go host.receive(peer)
-		// go host.send(peer)
 	}
 }
 
-func (peer *Peer) receive() {
-	for {
-		b := make([]byte, bufSize)
-		length, err := peer.socket.Read(b)
-		if err != nil {
-			peer.socket.Close()
-			break
-		}
-		if length > 0 {
-			fmt.Println("RECEIVED: " + string(b))
-		}
-	}
-}
-
-func createConnection(pi *PeerInfo) {
+func (host *Host) createConnection(peerID string, pi *PeerInfo) {
 	conn, err := net.Dial("tcp", pi.IP+":"+string(pi.Port))
 	if err != nil {
 		fmt.Println(err)
 	}
 	// Create peer, place in mapping
-	peer := &Peer{PeerID: "", socket: conn, trustline: nil, data: make(chan []byte)}
-	go peer.receive()
+	peer := &Peer{PeerID: peerID, socket: conn, trustline: &Trustline{0, 0}, data: make(chan []byte), pending: true}
+	host.register <- peer
 }
 
 func inputListener() {

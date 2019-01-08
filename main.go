@@ -47,10 +47,9 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 	fmt.Println("\nSet up complete, listening on port: ", port)
 
 	go host.stateManager()
+	go connectionListener(ln, host)
 
-	go startConnectionListener(ln, host)
-
-	// insert client code here
+	// Send loop
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		in := scanner.Text()
@@ -60,27 +59,44 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 			// example: pay Bob 10
 			if len(s) == 3 {
 				peerID := s[1]
-				amt, err := strconv.ParseUint(s[2], 10, 64)
-				if err != nil {
-					fmt.Println(err)
-					continue
+				if peer, exists := host.peerIDtoPeer[peerID]; !exists {
+					amt, err := strconv.ParseUint(s[2], 10, 64)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					if !peer.pending {
+						msg := Message{host.Name, peerID, "Pay", amt}
+						fmt.Println("Payment queued.")
+						host.outbound <- &msg
+					} else {
+						fmt.Printf("Err: Connection with %s is waiting to be accepted.", peerID)
+					}
+				} else {
+					fmt.Printf("Err: Connection with %s does not exists.", peerID)
 				}
-				msg := Message{host.Name, peerID, "Pay", amt}
-				fmt.Println(msg)
-				// send msg to outgoing channel
 			}
 		case "settle":
 			// example: settle Bob 20
 			// only the person with debt can settle. (i.e. negative balance)
 			if len(s) == 3 {
 				peerID := s[1]
-				amt, err := strconv.ParseUint(s[2], 10, 64)
-				if err != nil {
-					fmt.Println(err)
-					continue
+				if peer, exists := host.peerIDtoPeer[peerID]; !exists {
+					amt, err := strconv.ParseUint(s[2], 10, 64)
+					if err != nil {
+						fmt.Println(err)
+						continue
+					}
+					if !peer.pending {
+						msg := Message{host.Name, peerID, "Settle", amt}
+						fmt.Println("Settlement queued.")
+						host.outbound <- &msg
+					} else {
+						fmt.Printf("Err: Connection with %s is waiting to be accepted.", peerID)
+					}
+				} else {
+					fmt.Printf("Err: Connection with %s does not exists.", peerID)
 				}
-				msg := Message{host.Name, peerID, "Settle", amt}
-				fmt.Println(msg)
 			}
 		case "propose":
 			// same as open_trustline
@@ -88,34 +104,34 @@ func startService(name string, balance uint64, port uint16, isMainNet bool) {
 			// look up PeerID, obtain connection details
 			if len(s) == 2 {
 				peerID := s[2]
-				ud := getUsers()
-				for id, info := range ud {
-					if id == peerID {
-						createConnection(&info.PeerInfo)
-						msg := Message{host.Name, peerID, "Propose", 0}
-						fmt.Println(msg)
+				if _, exists := host.peerIDtoPeer[peerID]; !exists {
+					ud := getUsers()
+					for id, info := range ud {
+						if id == peerID {
+							host.createConnection(peerID, &info.PeerInfo)
+							msg := Message{host.Name, peerID, "Propose", 0}
+							fmt.Println("Propose queued.")
+							host.outbound <- &msg
+						}
 					}
+				} else {
+					fmt.Printf("Err: Connection with %s already exists.", peerID)
 				}
 			}
 		case "balance":
-			// print trustline and cash balances
-
-		case "trustlines":
-			// print trustline details
+			displayTrustlineBalances(&host)
 		case "users":
 			// print users on the FakeChain
 			ud := getUsers()
 			printPeerDetails(ud)
 		case "delete":
 			// delete all users on the FakeChain
-
+			deleteUsers()
 		case "exit":
+			fmt.Println("TODO")
 			// settle all debts
 			// exit with code
-		default:
-			continue
 		}
-
 	}
 }
 
