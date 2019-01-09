@@ -1,7 +1,5 @@
 # go-p2pcredit - a peer-to-peer credit messaging system
 
-## Usage
-
 Clone this repo and run:
 ```
 go build
@@ -21,7 +19,7 @@ Once launched, you will be prompted for a password. This is just the private
 key for Fakechain. Right now, it's just stored in memory because we don't
 require persistence, and it's never asked for again.
 
-*Available Commands*
+**Available Commands**
 
 ```Command options:
 pay <peerID> <amount> - pays peerID the amount in a trustline
