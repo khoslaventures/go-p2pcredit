@@ -110,10 +110,14 @@ func startClient(host *Host) {
 					ud := getUsers()
 					for id, info := range ud {
 						if id == peerID {
-							host.createConnection(peerID, &info.PeerInfo)
-							msg := Message{host.Name, peerID, "Propose", 0}
-							fmt.Println("Propose queued.")
-							host.outbound <- &msg
+							err := host.createConnection(peerID, &info.PeerInfo)
+							if err != nil {
+								fmt.Println(err)
+							} else {
+								msg := Message{host.Name, peerID, "Propose", 0}
+								fmt.Println("Propose queued.")
+								host.outbound <- &msg
+							}
 						}
 					}
 				} else {
@@ -171,6 +175,15 @@ func startClient(host *Host) {
 			// TODO: Should notify the other party to shutdown, perhaps create
 			// new message type of SettleClose?
 			os.Exit(1)
+		default:
+			fmt.Println("Command options:")
+			fmt.Println("pay <peerID> <amount> - pays peerID the amount in a trustline")
+			fmt.Println("settle <peerID> <amount> - settles amount on Fakechain with peerID for trustline")
+			fmt.Println("propose <peerID> - proposes a trustline to peerID")
+			fmt.Println("balance - displays peerID and corresponding trustline balance")
+			fmt.Println("users - query Fakechain for user information")
+			fmt.Println("exit - settle as much debt as possible and exit")
+			fmt.Println("delete - deletes all users")
 		}
 	}
 }
@@ -253,10 +266,6 @@ func main() {
 				return fmt.Errorf("port number %d is too high, should be below 65536", port)
 			}
 
-			fmt.Println(name)
-			fmt.Println(balance)
-			fmt.Println(port)
-			fmt.Println(c.Bool("mainnet"))
 			startService(name, uint32(balance), uint16(port), c.Bool("local"))
 		}
 		return nil

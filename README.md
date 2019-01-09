@@ -1,193 +1,76 @@
+# go-p2pcredit - a peer-to-peer credit messaging system
 
-# Strata Labs Technical Challenge
+## Usage
 
-## Logistics
-This challenge is intended to be done at home and should take 3-6 hours. You 
-should complete it in whatever programming language you feel most comfortable 
-with and you may use any resources you like.
-
-We will schedule a review session afterwards where we will ask you to discuss 
-your solution and explain your design choices.
-
-Upon completion, please send a zip of all the files used in your solution to 
-```info@stratalabs.io```.
-
-_Please do not share this challenge or your solution to it._
-
-## Challenge
-The year is 2009 and settling over a blockchain is slow and expensive.  With the
-invention of decentralized financial ledgers, we now have a trustless way to
-communicate value.  However, we still are not able to send micropayments because
-of the cost of settling over blockchains.  You will be designing a decentralized
-credit lending network that facilitates the communication of micropayments.
-
-Participants in this network will use "trustlines" to maintain balances between
-one another before settling on the underlying blockchain.  A trustline is a way
-to keep track of debt between two parties.  The trustline balance will start at
-0 and both parties independently track their views of the balance.  If Alice
-sends 10 units to Bob, they would both update their trustline balance so that
-Alice would see { Bob: -10 } and Bob would see { Alice: 10 }.  If Alice sends 10
-more units to Bob, she would see a balance of { Bob: -20 } and he would see {
-Alice: 20 }.  A negative amount indicates that a user owes money to the
-counterparty, while a positive amount indicates that a user is owed money by the
-counterparty.
-
-Participants in this network have decided on a credit limit of 100 units.  That
-means that anytime a trustline balance exceeds 100 units, that debt should be
-settled on the underlying blockchain.  If Alice maintains balances of { Bob:
--60, Charlie: -95 } and wants to send Charlie 10 units, then a settlement would
-be necessary because 105 exceeds the maximum trustline limit of 100.  Any time
-the limit of 100 will be exceeded in a payment a user should send the amount
-that will increase the balance to 100, settle on the blockchain, then send the
-remaining amount.  In this scenario, Alice would send Charlie 5 units, settle
-using a blockchain reverting their trustline balances to 0, then send the 
-remaning 5 units for a remaining trustline balance of { Bob: -60, Charlie -5 }.
-
-The blockchain your users will be using to settle their credit balances is
-called FakeChain.  We have implemented FakeChain for you and outline how you can
-interact with FakeChain through the endpoints below.
-
-Implement a program that exposes an interactive command line interface for each
-user participating in this network. Once a user starts the interactive prompt 
-they should be able to send money to other users using a trustline, view both their 
-trustline and FakeChain balances, and settle their trustlines over FakeChain.
-
-If you have any questions, please contact us in a group text and we'll get back 
-to you as soon as possible.
-
-Austin: ```(574) 849 - 9823```
-
-Dino: ```(336) 391 - 1192```
-
-### Constraints
-
-- **Users in the network must be able to communicate from different computers**
-- Users must be able to handle multiple peers; there should be only one trustline per peer
-- Before closing a session, a user must settle all outstanding debts on FakeChain 
-  (do not worry about outstanding credits)
-- Each user keeps track of their own trustline balances
-- We are looking for a decentralized network, trustlines should not be tracked or stored 
-  remotely (i.e. on a central server) each user's trustline balances should be
-  stored on the computer running the command line interface for that user.
-- One should be able to add new users into the network at will
-
-Do not worry about writing tests, we are more interested in seeing your 
-architecture decisions.  Also, do not worry about handling malicious nodes, you
-can assume that all of the participants in the network will behave honestly.
-
-### FakeChain REST API
-
-##### Endpoint: 
-This is the endpoint you will use to query FakeChain.
-```http://ec2-34-222-59-29.us-west-2.compute.amazonaws.com:5000/```
-The various queries and submissions you can make to FakeChain are outlined
-below.
-
-##### 
-
-```/add_user```
-
-*URL params*
-
-**candidate**: access key given at top of prompt
-
-**public_key**: node name
-
-**amount**: initial starting funds
-
-**private_key**: secret key to submit payments to FakeChain
-
-**peering_info**: custom JSON object of your design containing information 
-used to connect to other users in the network
-
-**example response**: "success"
-
-```/delete_all_users```
-
-*URL params:*
-
-**candidate**: access key given at top of prompt
-
-**example response**: "success"
-
-```/get_users```
-
-*URL params*
-
-**candidate**: access key given at top of prompt
-
-**example response**: 
+Clone this repo and run:
 ```
-{ "Alice": { "amount": 100, "peering_info": { custom
-values } }, "Bob": { "amount": 20, "peering_info": { custom values } } }
+go build
 ```
 
-```/pay_user```
-
-*URL params*
-
-**candidate**: access key given at top of prompt
-
-**sender**: public_key of sending node
-
-**receiver**: public_key of receiving node
-
-**private_key**: private_key of sender to authorize payment
-
-**amount**: amount to send
-
-**example response**: "success"
-
-### Example Terminal Output
-
-#### Alice
-
+To run locally only (publishes `localhost` as the IP address in `peering_info` to Fakechain):
 ```
-$ ./start-user ... # ( init options )
-User Alice created and registered on FakeChain!
-> open_trustline # ( Bob peering options )
-Trustline with Bob started!
-> open_trustline # ( Bill peering options )
-Trustline with Bill rejected.
-> pay Bob 10
-Sent
-> balance 
-Bob: -10
-Total: -10
-> exit
-Settling all trustlines.
-Goodbye.
+./messages --port PORT_NUMBER --local USERNAME STARTING_BALANCE
 ```
 
-#### Bob
-
-```sh
-$ ./start-user ... # ( init options )
-User Bob created and registered on FakeChain!
-Alice wants to start a trustline, accept?
-[Y/n]
-Trustline with Alice opened!
-> balance
-Alice: 0
-Total: 0
-You were paid 10!
-> balance
-Alice: 10
-Total: 10
-> exit
-Settling all trustlines.
-Goodbye.
+Omit the `--local` flag to allow connections beyond localhost:
+```
+./messages --port PORT_NUMBER USERNAME STARTING_BALANCE
 ```
 
-#### Bill
+Once launched, you will be prompted for a password. This is just the private
+key for Fakechain. Right now, it's just stored in memory because we don't
+require persistence, and it's never asked for again.
 
-```sh
-$ ./start-user ... # ( init options )
-User Bill created and registered on FakeChain!
-Alice wants to start a trustline, accept?
-[Y/n]
-Trustline with Alice denied!
-> exit
-No trustlines to settle.
-Goodbye.
+*Available Commands*
+
+```Command options:
+pay <peerID> <amount> - pays peerID the amount in a trustline
+settle <peerID> <amount> - settles amount on Fakechain with peerID for trustline
+propose <peerID> - proposes a trustline to peerID
+balance - displays peerID and corresponding trustline balance
+users - query Fakechain for user information
+exit - settle as much debt as possible and exit
+delete - deletes all users
 ```
+
+## Potential Issues/Needs
+
+- Since trustlines deal in credit, the host can pay (accumlate debt) to the point
+  where their Fakechain balance wouldn't be able to settle all the debt. This is
+  a potential issue if you wanted to exit and settle with everyone to find out
+  you can't settle.
+- Cleaner, more focused modularity. I'd spend more time on this and make it more
+  friendly, but because no one is using this, I've quickly thrown things into
+  various .go files with not as much thought as a production system.
+- Better way to print `> ` to prompt.
+- Better CLI handling/interface
+- Error handling should be consistent (i.e. Fakechain's API calls), and tested
+- Testing for all functionality
+- Clear comments for each component
+- Easy script for ngrok
+
+
+## Motivation
+
+I wrote this in Golang because I helped out a lot with Starlight, the Stellar
+payment channels implementation. It's the closest thing I've written to this,
+because client and server are in one package. However, Starlight is designed for
+production, and so much thought was put into just how to design the state
+machine that I had to condense what I remembered in that process down to a mere
+3 days. This was tough, because I had to fight my urge to think in terms of
+production code.
+
+I wouldn't say I'm a master at Golang. I was going to write this
+in Python, but the concurrency ergonomics are not nearly as powerful and
+elegant. Golang offers goroutines and channels, and you can effectively write an application
+without any explicit locking. Just use channels to synchronize. This was tough
+to design. Starting off the scaffolding was probably the hardest part.
+
+Definitely took me more than 12 hours because my VSCode debugger stopped working
+(GOPATH issues, but vim reads it fine), and Go is a secondary language for me.
+
+Overall, lesson is to just use Python or Node for coding challenges. Golang is
+far better for writing production grade systems, because it encourages
+minimalism, and that can be hard to initially build.
+
+

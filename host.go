@@ -242,19 +242,20 @@ func (host *Host) connectionListener(ln *net.TCPListener) {
 
 // createConnection is for the host to create connections and creates a receive
 // and send goroutine for the specified peer.
-func (host *Host) createConnection(peerID string, pi *PeerInfo) {
+func (host *Host) createConnection(peerID string, pi *PeerInfo) error {
 	cstr := fmt.Sprintf("%s:%d", pi.IP, pi.Port)
 	addr, err := net.ResolveTCPAddr("tcp", cstr)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	conn, err := net.DialTCP("tcp", nil, addr)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 	// Create peer, place in mapping
 	peer := &Peer{PeerID: peerID, socket: conn, trustline: &Trustline{0, 0}, data: make(chan []byte), pending: true}
 	host.register <- peer
 	go host.receive(peer)
 	go host.send(peer)
+	return nil
 }
