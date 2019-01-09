@@ -7,6 +7,4 @@ commands = [
       "sudo apt install -y unzip gcc",
       "sudo snap install go --classic",
       "unzip app.zip -d p2pcredit",
-      "cd p2pcredit",
-      "go build"
     ]

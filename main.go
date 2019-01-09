@@ -211,11 +211,17 @@ func startService(name string, balance uint32, port uint16, isLocal bool) {
 	host.setPassword()
 	host.setIP(isLocal)
 
-	// Add the user to Fakechain! TODO: Ensure success, if not, panic
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
 	fmt.Printf("User %s created and registered on FakeChain!\n", host.Name)
 
-	cstr := fmt.Sprintf(":%d", port)
+	var ip string
+	if !isLocal {
+		ip = "0.0.0.0"
+	} else {
+		ip = host.IP
+	}
+
+	cstr := fmt.Sprintf("%s:%d", ip, host.Port)
 	addr, err := net.ResolveTCPAddr("tcp", cstr)
 	if err != nil {
 		panic(err)
@@ -250,7 +256,7 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:  "local, l",
-			Usage: "Launch on localhost and publish localhost as IP in PeerInfo.",
+			Usage: "enable localhost connections only",
 		},
 	}
 

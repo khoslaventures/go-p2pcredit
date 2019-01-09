@@ -51,7 +51,6 @@ type GetOrDeleteUsers struct {
 	Candidate string `url:"candidate"`
 }
 
-// TODO: Handle incorrect password in the CLI, not here
 func addUser(id string, balance uint32, password string, ip string, port uint16) string {
 	endpoint := "add_user?"
 	p := PeerInfo{IP: ip, Port: port}
@@ -69,7 +68,6 @@ func addUser(id string, balance uint32, password string, ip string, port uint16)
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	ferror(err)
 	bodyString := string(bodyBytes)
-	// Should do proper error check, but leave it
 	return bodyString
 }
 

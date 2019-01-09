@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
 
 	"github.com/howeyc/gopass"
@@ -16,6 +18,19 @@ func displayTrustlineBalances(host *Host) {
 		totalTrustlineBalance += peer.trustline.HostBalance
 	}
 	fmt.Printf("Total: %d\n", totalTrustlineBalance)
+}
+
+// GetOutboundIP gets preferred outbound ip of this machine
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+
+	return localAddr.IP
 }
 
 func ferror(err error) {
@@ -58,9 +73,8 @@ func (host *Host) setIP(isLocal bool) {
 		}
 
 		host.IP = string(ip)
-		fmt.Printf("Your IP is: %s\n", ip)
 	} else {
 		fmt.Println("Running with localhost only!")
-		host.IP = "localhost"
+		host.IP = "127.0.0.1"
 	}
 }
