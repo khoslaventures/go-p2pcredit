@@ -215,7 +215,7 @@ func startService(name string, balance uint32, port uint16, isLocal bool) {
 	addUser(host.Name, host.Balance, host.password, host.IP, host.Port)
 	fmt.Printf("User %s created and registered on FakeChain!\n", host.Name)
 
-	cstr := fmt.Sprintf("localhost:%d", port)
+	cstr := fmt.Sprintf(":%d", port)
 	addr, err := net.ResolveTCPAddr("tcp", cstr)
 	if err != nil {
 		panic(err)
@@ -275,8 +275,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// startService()
 }
-
-// Idea, deny all Golang websocket connections if they don't fit the protocol.
