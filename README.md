@@ -21,7 +21,8 @@ require persistence, and it's never asked for again.
 
 **Available Commands**
 
-```Command options:
+```
+Command options:
 pay <peerID> <amount> - pays peerID the amount in a trustline
 settle <peerID> <amount> - settles amount on Fakechain with peerID for trustline
 propose <peerID> - proposes a trustline to peerID
