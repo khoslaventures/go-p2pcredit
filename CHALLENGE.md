@@ -55,9 +55,9 @@ trustline and FakeChain balances, and settle their trustlines over FakeChain.
 If you have any questions, please contact us in a group text and we'll get back 
 to you as soon as possible.
 
-Austin: ```(574) 849 - 9823```
+Austin:
 
-Dino: ```(336) 391 - 1192```
+Dino:
 
 ### Constraints
 
