@@ -49,27 +49,3 @@ delete - deletes all users
 - Easy script for ngrok
 
 
-## Motivation
-
-I wrote this in Golang because I helped out a lot with Starlight, the Stellar
-payment channels implementation. It's the closest thing I've written to this,
-because client and server are in one package. However, Starlight is designed for
-production, and so much thought was put into just how to design the state
-machine that I had to condense what I remembered in that process down to a mere
-3 days. This was tough, because I had to fight my urge to think in terms of
-production code.
-
-I wouldn't say I'm a master at Golang. I was going to write this
-in Python, but the concurrency ergonomics are not nearly as powerful and
-elegant. Golang offers goroutines and channels, and you can effectively write an application
-without any explicit locking. Just use channels to synchronize. This was tough
-to design. Starting off the scaffolding was probably the hardest part.
-
-Definitely took me more than 12 hours because my VSCode debugger stopped working
-(GOPATH issues, but vim reads it fine), and Go is a secondary language for me.
-
-Overall, lesson is to just use Python or Node for coding challenges. Golang is
-far better for writing production grade systems, because it encourages
-minimalism, and that can be hard to initially build.
-
-
